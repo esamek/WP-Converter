@@ -23,15 +23,17 @@ Converts WordPerfect files (.wpd) to Word files (.docx) using LibreOffice.
 ## Requirements
 
 * OS X (Apple Silicon)
-* LibreOffice installed ([get it here](https://www.libreoffice.org))
+* Python3
+* LibreOffice ([get it here](https://www.libreoffice.org))
 
 ## How to install & use
 
 ### MacOS App
 
-1. Download WP Converter.app located in `dist/` folder
-2. Copy into Applications folder
-3. Double click to run
+1. Download LibreOffice ([get it here](https://www.libreoffice.org))
+2. Download WP Converter.app located in `dist/` folder
+3. Copy into Applications folder
+4. Double click to run
 
 ### Python Script
 
