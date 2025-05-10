@@ -37,8 +37,9 @@ Converts WordPerfect files (.wpd) to Word files (.docx) using LibreOffice.
 
 ### Python Script
 
-1. Download repo
-2. Run `python3 wpd_to_docx.py`
+1. Download LibreOffice ([get it here](https://www.libreoffice.org))
+2. Download repo
+3. Run `python3 wpd_to_docx.py`
 
 #### Python Script Usage
 
