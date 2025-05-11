@@ -1,4 +1,4 @@
-('/Users/evansamek/Code/WordPerfecto/build/WP Converter/WP Converter.pkg',
+('/Users/evansamek/Code/WP Converter/build/WP Converter/WP Converter.pkg',
  {'BINARY': True,
   'DATA': True,
   'EXECUTABLE': True,
@@ -10,7 +10,7 @@
   'SYMLINK': False},
  [('pyi-contents-directory _internal', '', 'OPTION'),
   ('PYZ-00.pyz',
-   '/Users/evansamek/Code/WordPerfecto/build/WP Converter/PYZ-00.pyz',
+   '/Users/evansamek/Code/WP Converter/build/WP Converter/PYZ-00.pyz',
    'PYZ'),
   ('lib-dynload/_struct.cpython-39-darwin.so',
    '/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/lib-dynload/_struct.cpython-39-darwin.so',
@@ -19,18 +19,18 @@
    '/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/lib-dynload/zlib.cpython-39-darwin.so',
    'EXTENSION'),
   ('struct',
-   '/Users/evansamek/Code/WordPerfecto/build/WP Converter/localpycs/struct.pyc',
+   '/Users/evansamek/Code/WP Converter/build/WP Converter/localpycs/struct.pyc',
    'PYMODULE'),
   ('pyimod01_archive',
-   '/Users/evansamek/Code/WordPerfecto/build/WP '
+   '/Users/evansamek/Code/WP Converter/build/WP '
    'Converter/localpycs/pyimod01_archive.pyc',
    'PYMODULE'),
   ('pyimod02_importers',
-   '/Users/evansamek/Code/WordPerfecto/build/WP '
+   '/Users/evansamek/Code/WP Converter/build/WP '
    'Converter/localpycs/pyimod02_importers.pyc',
    'PYMODULE'),
   ('pyimod03_ctypes',
-   '/Users/evansamek/Code/WordPerfecto/build/WP '
+   '/Users/evansamek/Code/WP Converter/build/WP '
    'Converter/localpycs/pyimod03_ctypes.pyc',
    'PYMODULE'),
   ('pyiboot01_bootstrap',
@@ -40,7 +40,7 @@
    '/Users/evansamek/Library/Python/3.9/lib/python/site-packages/PyInstaller/hooks/rthooks/pyi_rth__tkinter.py',
    'PYSOURCE'),
   ('wpd_to_docx',
-   '/Users/evansamek/Code/WordPerfecto/wpd_to_docx.py',
+   '/Users/evansamek/Code/WP Converter/wpd_to_docx.py',
    'PYSOURCE')],
  'Python3',
  True,

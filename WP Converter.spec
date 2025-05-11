@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['/Users/evansamek/Code/WordPerfecto/wpd_to_docx.py'],
+    ['/Users/evansamek/Code/WP Converter/wpd_to_docx.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -32,7 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['/Users/evansamek/Code/WordPerfecto/icon.icns'],
+    icon=['/Users/evansamek/Code/WP Converter/icon.icns'],
 )
 coll = COLLECT(
     exe,
@@ -46,6 +46,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='WP Converter.app',
-    icon='/Users/evansamek/Code/WordPerfecto/icon.icns',
+    icon='/Users/evansamek/Code/WP Converter/icon.icns',
     bundle_identifier=None,
 )

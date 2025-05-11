@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WordPerfect → Word Converter</title>
+  <style>
+    body{font-family:sans-serif;margin:1.8rem;color:#222;background:#fafafa}
+    h1{font-size:1.5rem;text-align:center;margin-bottom:1.2rem}
+    h3{font-size:1.1rem;margin:1.5rem 0 .4rem;border-bottom:1px solid #aaa;padding-bottom:.2rem}
+    label{display:block;margin:.6em 0}
+    button{padding:.4em 1.1em;margin-right:.6em}
+    fieldset{border:none;padding:0}
+    pre{background:#eee;padding:.8em;white-space:pre-wrap}
+    .disabled{opacity:0.55;pointer-events:none}
+  </style>
+</head>
+<body>
+  <h1>WordPerfect to Word Converter</h1>
+
+  <!-- SOURCE FILES -->
+  <h3>SOURCE FILES</h3>
+  <div>
+    <button id="btnFile">Browse File…</button>
+    <button id="btnFolder">Browse Folder…</button>
+    <label><input type="checkbox" id="chkRecursive"> Search sub‑folders (recursive)</label>
+  </div>
+
+  <!-- DESTINATION OPTIONS -->
+  <h3>DESTINATION OPTIONS</h3>
+  <fieldset>
+    <label><input type="radio" name="destType" value="same" checked> Save in the same location as source files</label>
+    <label><input type="radio" name="destType" value="converted"> Place converted files in 'Converted' sub‑folder</label>
+    <label><input type="radio" name="destType" value="custom"> Use custom destination folder</label>
+
+    <div id="customControls" class="disabled" style="margin-left:1.2rem">
+      <button id="btnDest">Browse Destination…</button>
+      <label><input type="checkbox" id="chkStructure"> Preserve folder structure in destination</label>
+      <div id="destPath" style="font-size:.85rem;color:#555"></div>
+    </div>
+  </fieldset>
+
+  <!-- SELECTION SUMMARY -->
+  <h3>SELECTION SUMMARY</h3>
+  <pre id="summary"></pre>
+
+  <!-- CONVERT -->
+  <h3>CONVERT</h3>
+  <button id="btnConvert" style="background:#4CAF50;color:#fff;font-weight:bold">Convert Files</button>
+
+  <script>
+    // --- helpers -------------------------------------------------------------
+    function updateSummary(){
+      const src = window.sourcePath || "(none)";
+      const destType = document.querySelector('input[name="destType"]:checked').value;
+      let destText = "";
+      if(destType==="same") destText="Same as source";
+      if(destType==="converted") destText="'Converted' subfolder";
+      if(destType==="custom"){
+        const d=window.destPath||"(not selected)";
+        destText="Custom: "+d;
+        if(document.getElementById('chkStructure').checked) destText+=" (preserving structure)";
+      }
+      document.getElementById('summary').textContent=
+        `Source: ${src}\nDestination: ${destText}`;
+    }
+
+    function setCustomEnabled(on){
+      const div=document.getElementById('customControls');
+      if(on){div.classList.remove('disabled');}
+      else{div.classList.add('disabled');}
+    }
+
+    // --- UI event wiring -----------------------------------------------------
+    document.getElementById('btnFile').onclick=async()=>{
+      const p = await window.pywebview.api.choose_file();
+      if(p){ window.sourcePath=p; updateSummary(); }
+    };
+
+    document.getElementById('btnFolder').onclick=async()=>{
+      const p = await window.pywebview.api.choose_folder();
+      if(p){ window.sourcePath=p; updateSummary(); }
+    };
+
+    document.getElementById('btnDest').onclick=async()=>{
+      const p = await window.pywebview.api.choose_dest();
+      if(p){ window.destPath=p; updateSummary(); }
+    };
+
+    document.getElementById('chkRecursive').onchange=updateSummary;
+    document.getElementById('chkStructure').onchange=updateSummary;
+
+    // radio buttons
+    document.querySelectorAll('input[name="destType"]').forEach(r=>{
+      r.onchange=()=>{
+        setCustomEnabled(r.value==="custom");
+        updateSummary();
+      };
+    });
+
+    document.getElementById('btnConvert').onclick=async()=>{
+      if(!window.sourcePath){
+        alert("Please select a file or folder first.");
+        return;
+      }
+      // dest folder validation
+      if(document.querySelector('input[name="destType"]:checked').value==="custom" && !window.destPath){
+        alert("Please select a destination folder.");
+        return;
+      }
+      const opts={
+        recursive: document.getElementById('chkRecursive').checked,
+        destType: document.querySelector('input[name="destType"]:checked').value,
+        destPath: window.destPath||"",
+        preserve: document.getElementById('chkStructure').checked
+      };
+      const result = await window.pywebview.api.convert(window.sourcePath, opts);
+      document.getElementById('summary').textContent=result;
+    };
+
+    updateSummary(); // initial
+  </script>
+</body>
+</html>
