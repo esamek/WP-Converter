@@ -2,50 +2,68 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <script src="https://cdn.tailwindcss.com"></script>
   <title>WordPerfect → Word Converter</title>
-  <style>
-    body{font-family:sans-serif;margin:1.8rem;color:#222;background:#fafafa}
-    h1{font-size:1.5rem;text-align:center;margin-bottom:1.2rem}
-    h3{font-size:1.1rem;margin:1.3rem 0 .4rem;border-bottom:1px solid #aaa;padding-bottom:.2rem}
-    label{display:block;margin:.6em 0}
-    button{padding:.4em 1.1em;margin-right:.6em}
-    fieldset{border:none;padding:0}
-    pre{background:#eee;padding:.8em;white-space:pre-wrap}
-    .disabled{opacity:0.55;pointer-events:none}
-  </style>
 </head>
-<body>
-  <h1>WordPerfect to Word Converter</h1>
+<body class="min-h-screen bg-gray-900 text-gray-100 font-sans p-8 text-sm">
+  <h1 class="text-3xl">Convert WordPerfect Files to Word Files</h1>
+  <p class="text-gray-400 mb-4 mt-1">This tool converts WordPerfect files to Word files. It can convert a single file or all files in a folder.</p>
 
-  <!-- SOURCE FILES -->
-  <h3>SOURCE FILES</h3>
-  <div>
-    <button id="btnFile">Browse File…</button>
-    <button id="btnFolder">Browse Folder…</button>
-    <label><input type="checkbox" id="chkRecursive"> Search sub-folders (recursive)</label>
-  </div>
-
-  <!-- DESTINATION OPTIONS -->
-  <h3>DESTINATION OPTIONS</h3>
-  <fieldset>
-    <label><input type="radio" name="destType" value="same" checked> Save in the same location as source files</label>
-    <label><input type="radio" name="destType" value="converted"> Place converted files in 'Converted' sub-folder</label>
-    <label><input type="radio" name="destType" value="custom"> Use custom destination folder</label>
-
-    <div id="customControls" class="disabled" style="margin-left:1.2rem">
-      <button id="btnDest">Browse Destination…</button>
-      <label><input type="checkbox" id="chkStructure"> Preserve folder structure in destination</label>
-      <div id="destPath" style="font-size:.85rem;color:#555"></div>
+  <section class="bg-gray-800 p-4 rounded mb-8">
+    <!-- SOURCE FILES -->
+    <h3 class="text-xl  border-b border-gray-700 mb-4">Source Files</h3>
+    <div class="mb-2">
+      <button id="btnFile" class="bg-neutral-600 hover:bg-blue-500 text-white py-1 px-4 rounded-full mr-2">Browse File…</button><br />
+      <button id="btnFolder" class="mt-5 bg-neutral-600 hover:bg-blue-500 text-white py-1 px-4 rounded-full mr-2">Browse Folder…</button>
+      <label class="inline-flex items-center space-x-2 mt-3">
+        <input type="checkbox" id="chkRecursive" class="form-checkbox text-blue-500">
+        <span>Search sub-folders (recursive)</span>
+      </label>
     </div>
-  </fieldset>
+    <p id="srcDisplay" class="text-sm text-gray-400 mt-2"></p>
+  </section>
 
-  <!-- SELECTION SUMMARY -->
-  <h3>SELECTION SUMMARY</h3>
-  <pre id="summary"></pre>
+  <section class="bg-gray-800 p-4 rounded mb-8">
+    <!-- DESTINATION OPTIONS -->
+    <h3 class="text-xl  border-b border-gray-700 mb-4">Destination Options</h3>
+    <fieldset class="mb-2">
+      <label class="inline-flex items-center space-x-2 mt-2">
+        <input type="radio" name="destType" value="same" checked class="form-radio text-blue-500">
+        <span>Save in the same location as source files</span>
+      </label><br>
+      <label class="inline-flex items-center space-x-2 mt-2">
+        <input type="radio" name="destType" value="converted" class="form-radio text-blue-500">
+        <span>Place converted files in 'Converted' sub-folder</span>
+      </label><br>
+      <label class="inline-flex items-center space-x-2 mt-2">
+        <input type="radio" name="destType" value="custom" class="form-radio text-blue-500">
+        <span>Use custom destination folder</span>
+      </label>
 
-  <!-- CONVERT -->
-  <h3>CONVERT</h3>
-  <button id="btnConvert" style="background:#4CAF50;color:#fff;font-weight:bold">Convert Files</button>
+      <div id="customControls" class="hidden ml-5 mb-4 mt-2">
+        <button id="btnDest" class="bg-neutral-600 hover:bg-blue-500 text-white py-1 px-4 rounded-full mr-2 mt-1">Browse Destination…</button>
+        <label class="inline-flex items-center space-x-2 mt-2">
+          <input type="checkbox" id="chkStructure" class="form-checkbox text-blue-500">
+          <span>Preserve folder structure in destination</span>
+        </label>
+        <div id="destPath" class="text-sm text-gray-400"></div>
+      </div>
+    </fieldset>
+  </section>
+
+  <section id="summaryContainer" class="hidden bg-gray-800 p-4 rounded mb-8">
+    <h3 class="text-xl  border-b border-gray-700  pb-2 mb-4">Summary</h3>
+    <pre id="summary" class="whitespace-pre-wrap text-sm text-gray-200"></pre>
+  </section>
+
+  <section class="bg-gray-800 p-4 rounded mb-8">
+    <!-- CONVERT -->
+    <!-- <h3 class="text-xl  border-b border-gray-700 pt-4 pb-2 mb-4">CONVERT</h3> -->
+    
+    
+    
+    <button id="btnConvert" class="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded mr-2 font-bold ">Convert Files</button>
+  </section>
 
   <script>
     // ---------------- helpers ----------------
@@ -61,9 +79,11 @@
         if(document.getElementById('chkStructure').checked) destText+=" (preserving structure)";
       }
       document.getElementById('summary').textContent = `Source: ${src}\nDestination: ${destText}`;
+      document.getElementById('srcDisplay').textContent = `Source: ${src}`;
     }
     function toggleCustom(on){
-      document.getElementById('customControls').classList[on?"remove":"add"]("disabled");
+      const div = document.getElementById('customControls');
+      div.classList.toggle('hidden', !on);
     }
 
     // ------------- wire buttons -------------
@@ -112,6 +132,7 @@
       const result = await window.pywebview.api.convert(window.sourcePath, opts);
       // Display result in summary area
       document.getElementById('summary').textContent = result;
+      document.getElementById('summaryContainer').classList.remove('hidden');
     };
 
     updateSummary(); // initialise

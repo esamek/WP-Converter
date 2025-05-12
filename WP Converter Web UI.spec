@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['web_gui.py'],
+    ['/Users/evansamek/Code/WP Converter/web_gui.py'],
     pathex=[],
     binaries=[],
     datas=[('ui', 'ui')],
@@ -32,6 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['/Users/evansamek/Code/WP Converter/icon.icns'],
 )
 coll = COLLECT(
     exe,
@@ -45,6 +46,6 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='WP Converter Web UI.app',
-    icon=None,
+    icon='/Users/evansamek/Code/WP Converter/icon.icns',
     bundle_identifier=None,
 )

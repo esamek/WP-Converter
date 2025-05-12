@@ -1,120 +1,44 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>WordPerfect → Word Converter</title>
-  <style>
-    body{font-family:sans-serif;margin:1.8rem;color:#222;background:#fafafa}
-    h1{font-size:1.5rem;text-align:center;margin-bottom:1.2rem}
-    h3{font-size:1.1rem;margin:1.3rem 0 .4rem;border-bottom:1px solid #aaa;padding-bottom:.2rem}
-    label{display:block;margin:.6em 0}
-    button{padding:.4em 1.1em;margin-right:.6em}
-    fieldset{border:none;padding:0}
-    pre{background:#eee;padding:.8em;white-space:pre-wrap}
-    .disabled{opacity:0.55;pointer-events:none}
-  </style>
-</head>
-<body>
-  <h1>WordPerfect to Word Converter</h1>
+import sys
+import shutil
+import subprocess
+from pathlib import Path
+import os
 
-  <!-- SOURCE FILES -->
-  <h3>SOURCE FILES</h3>
-  <div>
-    <button id="btnFile">Browse File…</button>
-    <button id="btnFolder">Browse Folder…</button>
-    <label><input type="checkbox" id="chkRecursive"> Search sub-folders (recursive)</label>
-  </div>
+ROOT = Path(__file__).parent
 
-  <!-- DESTINATION OPTIONS -->
-  <h3>DESTINATION OPTIONS</h3>
-  <fieldset>
-    <label><input type="radio" name="destType" value="same" checked> Save in the same location as source files</label>
-    <label><input type="radio" name="destType" value="converted"> Place converted files in 'Converted' sub-folder</label>
-    <label><input type="radio" name="destType" value="custom"> Use custom destination folder</label>
+# Define build targets: (app name, entry-point script, extra PyInstaller args)
+APPS = [
+    ("WP Converter", ROOT / "wpd_to_docx.py", []),
+    ("WP Converter Web UI", ROOT / "web_gui.py", ["--add-data", "ui" + os.pathsep + "ui"]),
+]
+ICON = ROOT / "icon.icns"
 
-    <div id="customControls" class="disabled" style="margin-left:1.2rem">
-      <button id="btnDest">Browse Destination…</button>
-      <label><input type="checkbox" id="chkStructure"> Preserve folder structure in destination</label>
-      <div id="destPath" style="font-size:.85rem;color:#555"></div>
-    </div>
-  </fieldset>
+def clean():
+    """Remove PyInstaller artifacts for all builds."""
+    for name, _, _ in APPS:
+        spec = ROOT / f"{name}.spec"
+        for path in (ROOT / "build", ROOT / "dist", spec):
+            if path.exists():
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
 
-  <!-- SELECTION SUMMARY -->
-  <h3>SELECTION SUMMARY</h3>
-  <pre id="summary"></pre>
+def build():
+    """Invoke PyInstaller for each app in APPS."""
+    for name, script, extras in APPS:
+        args = [
+            sys.executable, "-m", "PyInstaller",
+            "--windowed", "--onedir", "--name", name
+        ]
+        if ICON.exists():
+            args += ["--icon", str(ICON)]
+        args += extras
+        args.append(str(script))
+        print("• Building:", name)
+        print("  Command:", " ".join(args))
+        subprocess.run(args, check=True)
 
-  <!-- CONVERT -->
-  <h3>CONVERT</h3>
-  <button id="btnConvert" style="background:#4CAF50;color:#fff;font-weight:bold">Convert Files</button>
-
-  <script>
-    // ---------------- helpers ----------------
-    function updateSummary(){
-      const src = window.sourcePath || "(none)";
-      const destType = document.querySelector('input[name="destType"]:checked').value;
-      let destText = "";
-      if(destType==="same") destText="Same as source";
-      if(destType==="converted") destText="'Converted' sub-folder";
-      if(destType==="custom"){
-        const d=window.destPath||"(not selected)";
-        destText="Custom: "+d;
-        if(document.getElementById('chkStructure').checked) destText+=" (preserving structure)";
-      }
-      document.getElementById('summary').textContent = `Source: ${src}\nDestination: ${destText}`;
-    }
-    function toggleCustom(on){
-      document.getElementById('customControls').classList[on?"remove":"add"]("disabled");
-    }
-
-    // ------------- wire buttons -------------
-    btnFile.onclick = async () =>{
-      const p = await window.pywebview.api.choose_file();
-      if(p){ window.sourcePath=p; updateSummary(); }
-    };
-    btnFolder.onclick = async () =>{
-      const p = await window.pywebview.api.choose_folder();
-      if(p){ window.sourcePath=p; updateSummary(); }
-    };
-    btnDest.onclick = async () =>{
-      const p = await window.pywebview.api.choose_dest();
-      if(p){ window.destPath=p; destPath.textContent=p; updateSummary(); }
-    };
-
-    chkRecursive.onchange = updateSummary;
-    chkStructure.onchange = updateSummary;
-
-    document.querySelectorAll('input[name="destType"]').forEach(r=>{
-      r.onchange = () =>{
-        toggleCustom(r.value==="custom");
-        updateSummary();
-      };
-    });
-
-    btnConvert.onclick = async () => {
-      if (!window.sourcePath) {
-        alert("Please select a file or folder first.");
-        return;
-      }
-      // Validate custom destination
-      const destType = document.querySelector('input[name="destType"]:checked').value;
-      if (destType === "custom" && !window.destPath) {
-        alert("Please select a destination folder.");
-        return;
-      }
-      // Build options object
-      const opts = {
-        recursive: document.getElementById('chkRecursive').checked,
-        destType,
-        destPath: window.destPath || "",
-        preserve: document.getElementById('chkStructure').checked
-      };
-      // Call Python conversion and get log
-      const result = await window.pywebview.api.convert(window.sourcePath, opts);
-      // Display result in summary area
-      document.getElementById('summary').textContent = result;
-    };
-
-    updateSummary(); // initialise
-  </script>
-</body>
-</html>
+if __name__ == "__main__":
+    clean()
+    build()
