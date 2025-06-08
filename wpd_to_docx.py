@@ -8,6 +8,7 @@ Usage
 $ python wpd_to_docx.py                # interactive prompt
 $ python wpd_to_docx.py /path/to/file.wpd
 $ python wpd_to_docx.py /path/to/folder
+$ python wpd_to_docx.py /path/to/folder --recursive  # search sub-folders recursively
 $ python wpd_to_docx.py /path/to/folder --organize  # place files in 'Converted' subfolder
 $ python wpd_to_docx.py /path/to/folder --dest /path/to/destination  # custom destination
 $ python wpd_to_docx.py /path/to/folder --dest /path/to/destination --retain-structure  # keep folder structure
@@ -42,7 +43,7 @@ def ensure_soffice():
 def convert_file(
     wpd: Path,
     organize: bool = False,
-    dest_folder: Path = None,
+    dest_folder: Optional[Path] = None,
     retain_structure: bool = False,
     src_root: Optional[Path] = None,
 ):
@@ -73,16 +74,23 @@ def convert_file(
 def walk_and_convert(
     path: Path,
     organize: bool = False,
-    dest_folder: Path = None,
+    dest_folder: Optional[Path] = None,
     retain_structure: bool = False,
     src_root: Optional[Path] = None,
+    recursive: bool = True,
 ):
     if src_root is None:
         src_root = path if path.is_dir() else path.parent
     if path.is_file() and path.suffix.lower() == ".wpd":
         convert_file(path, organize, dest_folder, retain_structure, src_root)
     elif path.is_dir():
-        for wpd in path.rglob("*.wpd"):
+        # Use rglob for recursive search or glob for non-recursive search
+        finder = path.rglob if recursive else path.glob
+        wpd_files = list(finder("*.wpd"))
+        if not wpd_files:
+            print("No .wpd files found.")
+            return
+        for wpd in wpd_files:
             convert_file(wpd, organize, dest_folder, retain_structure, src_root)
     else:
         print("No .wpd files found.")
@@ -319,6 +327,7 @@ def main():
         
         # Use simple flags for CLI options
         organize = "--organize" in sys.argv
+        recursive = "--recursive" in sys.argv  # New flag for recursive search
         
         # Check for destination folder parameter
         dest_folder = None
@@ -330,7 +339,13 @@ def main():
             elif arg == "--retain-structure":
                 retain_structure = True
         
-        walk_and_convert(target, organize=organize, dest_folder=dest_folder, retain_structure=retain_structure)
+        walk_and_convert(
+            target, 
+            organize=organize, 
+            dest_folder=dest_folder, 
+            retain_structure=retain_structure,
+            recursive=recursive
+        )
     else:                                          # double‑clicked .app → show GUI first
         launch_gui()
 
