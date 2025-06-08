@@ -57,11 +57,23 @@ Destination: Custom: [object HTMLDivElement]</pre>
 
   <section class="bg-gray-800 p-4 rounded mb-8">
     <!-- CONVERT -->
-    <!-- <h3 class="text-xl  border-b border-gray-700 pt-4 pb-2 mb-4">CONVERT</h3> -->
-    
-    
-    
     <button id="btnConvert" class="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded mr-2 font-bold ">Convert Files</button>
+    
+    <!-- Progress Bar -->
+    <div id="progressContainer" class="hidden mt-4">
+      <div class="flex items-center mb-2">
+        <span id="progressText" class="text-sm text-gray-300">Converting files...</span>
+        <div id="checkmark" class="hidden ml-2">
+          <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+          </svg>
+        </div>
+      </div>
+      <div class="w-full bg-gray-700 rounded-full h-2">
+        <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+      </div>
+      <div id="progressPercent" class="text-xs text-gray-400 mt-1">0%</div>
+    </div>
   </section>
 
   <script>
@@ -109,6 +121,41 @@ Destination: Custom: [object HTMLDivElement]</pre>
       };
     });
 
+    // Progress bar functions
+    function showProgress() {
+      document.getElementById('progressContainer').classList.remove('hidden');
+      document.getElementById('checkmark').classList.add('hidden');
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressPercent').textContent = '0%';
+      document.getElementById('progressText').textContent = 'Converting files...';
+    }
+
+    function updateProgress(percent, text = null) {
+      document.getElementById('progressBar').style.width = percent + '%';
+      document.getElementById('progressPercent').textContent = Math.round(percent) + '%';
+      if (text) {
+        document.getElementById('progressText').textContent = text;
+      }
+    }
+
+    function completeProgress(success = true) {
+      updateProgress(100);
+      document.getElementById('progressText').textContent = success ? 'Conversion completed!' : 'Conversion failed';
+      if (success) {
+        document.getElementById('checkmark').classList.remove('hidden');
+        document.getElementById('progressBar').style.backgroundColor = '#10b981'; // green
+      } else {
+        document.getElementById('progressBar').style.backgroundColor = '#ef4444'; // red
+      }
+    }
+
+    function hideProgress() {
+      setTimeout(() => {
+        document.getElementById('progressContainer').classList.add('hidden');
+        document.getElementById('progressBar').style.backgroundColor = '#2563eb'; // reset to blue
+      }, 3000); // Hide after 3 seconds
+    }
+
     btnConvert.onclick = async () => {
       if (!window.sourcePath) {
         alert("Please select a file or folder first.");
@@ -120,18 +167,92 @@ Destination: Custom: [object HTMLDivElement]</pre>
         alert("Please select a destination folder.");
         return;
       }
-      // Build options object
-      const opts = {
-        recursive: document.getElementById('chkRecursive').checked,
-        destType,
-        destPath: window.destPath || "",
-        preserve: document.getElementById('chkStructure').checked
-      };
-      // Call Python conversion and get log
-      const result = await window.pywebview.api.convert(window.sourcePath, opts);
-      // Display result in summary area
-      document.getElementById('summary').textContent = result;
-      document.getElementById('summaryContainer').classList.remove('hidden');
+      
+      // Disable convert button and show progress
+      btnConvert.disabled = true;
+      btnConvert.textContent = "Converting...";
+      showProgress();
+      
+      try {
+        // Build options object
+        const opts = {
+          recursive: document.getElementById('chkRecursive').checked,
+          destType,
+          destPath: window.destPath || "",
+          preserve: document.getElementById('chkStructure').checked
+        };
+        
+        // Get file count first for progress calculation
+        const fileCount = await window.pywebview.api.get_file_count(window.sourcePath, opts);
+        
+        if (fileCount === 0) {
+          updateProgress(100, 'No .wpd files found');
+          completeProgress(false);
+          document.getElementById('summary').textContent = 'No .wpd files found to convert.';
+          document.getElementById('summaryContainer').classList.remove('hidden');
+          document.getElementById('summary').style.color = '#ef4444'; // red
+          hideProgress();
+          return;
+        }
+
+        // Simulate progress for better UX
+        let currentProgress = 0;
+        const progressInterval = setInterval(() => {
+          if (currentProgress < 90) {
+            currentProgress += Math.random() * 15;
+            updateProgress(Math.min(currentProgress, 90));
+          }
+        }, 200);
+
+        // Call Python conversion and get result
+        const result = await window.pywebview.api.convert_with_progress(window.sourcePath, opts);
+        
+        // Clear the progress simulation
+        clearInterval(progressInterval);
+        
+        // Complete the progress bar
+        completeProgress(result.success);
+        
+        // Display result in summary area
+        let displayText = result.message;
+        
+        // Add detailed statistics if available
+        if (result.stats && result.stats.total > 0) {
+          displayText += "\n\nDetailed Statistics:";
+          displayText += `\n• Total files found: ${result.stats.total}`;
+          displayText += `\n• Successfully converted: ${result.stats.successful}`;
+          if (result.stats.failed > 0) {
+            displayText += `\n• Failed conversions: ${result.stats.failed}`;
+          }
+          if (result.stats.skipped > 0) {
+            displayText += `\n• Skipped (already exist): ${result.stats.skipped}`;
+          }
+        }
+        
+        document.getElementById('summary').textContent = displayText;
+        document.getElementById('summaryContainer').classList.remove('hidden');
+        
+        // Show success/error styling
+        const summaryElement = document.getElementById('summary');
+        if (result.success) {
+          summaryElement.style.color = '#10b981'; // green
+        } else {
+          summaryElement.style.color = '#ef4444'; // red
+        }
+        
+        hideProgress();
+        
+      } catch (error) {
+        completeProgress(false);
+        document.getElementById('summary').textContent = `Error: ${error.message}`;
+        document.getElementById('summaryContainer').classList.remove('hidden');
+        document.getElementById('summary').style.color = '#ef4444'; // red
+        hideProgress();
+      } finally {
+        // Re-enable convert button
+        btnConvert.disabled = false;
+        btnConvert.textContent = "Convert Files";
+      }
     };
 
     updateSummary(); // initialise

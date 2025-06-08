@@ -8,6 +8,7 @@ Usage
 $ python wpd_to_docx.py                # interactive prompt
 $ python wpd_to_docx.py /path/to/file.wpd
 $ python wpd_to_docx.py /path/to/folder
+$ python wpd_to_docx.py /path/to/folder --recursive  # search sub-folders recursively
 $ python wpd_to_docx.py /path/to/folder --organize  # place files in 'Converted' subfolder
 $ python wpd_to_docx.py /path/to/folder --dest /path/to/destination  # custom destination
 $ python wpd_to_docx.py /path/to/folder --dest /path/to/destination --retain-structure  # keep folder structure
@@ -25,67 +26,181 @@ def ensure_soffice():
     """
     Make sure the global ``SOFFICE`` variable points to a LibreOffice
     binary. First tries whatever is on PATH, then falls back to the
-    default macOS install location /Applications/LibreOffice.app.
+    default install locations for macOS and Windows.
     """
     global SOFFICE
     if SOFFICE:  # already found via shutil.which
         return
-    alt = Path("/Applications/LibreOffice.app/Contents/MacOS/soffice")
-    if alt.exists():
-        SOFFICE = str(alt)
-    else:
-        sys.exit(
-            "LibreOffice is required.  Install it from libreoffice.org "
-            "or with Homebrew:\n\n  brew install --cask libreoffice"
-        )
+    
+    # Try common installation paths
+    possible_paths = []
+    
+    # macOS paths
+    possible_paths.extend([
+        Path("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
+        Path("/opt/homebrew/bin/soffice"),  # Homebrew on Apple Silicon
+        Path("/usr/local/bin/soffice"),     # Homebrew on Intel
+    ])
+    
+    # Windows paths
+    possible_paths.extend([
+        Path("C:/Program Files/LibreOffice/program/soffice.exe"),
+        Path("C:/Program Files (x86)/LibreOffice/program/soffice.exe"),
+        Path(f"{Path.home()}/AppData/Local/Programs/LibreOffice/program/soffice.exe"),
+    ])
+    
+    for path in possible_paths:
+        if path.exists():
+            SOFFICE = str(path)
+            return
+    
+    # If we get here, LibreOffice wasn't found
+    install_msg = (
+        "LibreOffice is required. Install it from libreoffice.org"
+    )
+    if sys.platform == "darwin":  # macOS
+        install_msg += " or with Homebrew:\n\n  brew install --cask libreoffice"
+    elif sys.platform == "win32":  # Windows
+        install_msg += "\n\nDownload from: https://www.libreoffice.org/download/download/"
+    
+    sys.exit(install_msg)
 
 def convert_file(
     wpd: Path,
     organize: bool = False,
-    dest_folder: Path = None,
+    dest_folder: Optional[Path] = None,
     retain_structure: bool = False,
     src_root: Optional[Path] = None,
 ):
     print(f"→ {wpd.name}", end="  ")
     
-    if dest_folder:
-        if retain_structure and src_root:
-            # Preserve full relative path from the original source root
-            rel_path = wpd.parent.relative_to(src_root)
-            out_dir = dest_folder / rel_path
+    try:
+        # Check if source file exists and is readable
+        if not wpd.exists():
+            print("failed - file not found")
+            return False
+        
+        if not wpd.is_file():
+            print("failed - not a file")
+            return False
+        
+        # Validate file extension
+        if wpd.suffix.lower() != ".wpd":
+            print("failed - not a .wpd file")
+            return False
+        
+        # Determine output directory
+        if dest_folder:
+            if retain_structure and src_root:
+                # Preserve full relative path from the original source root
+                rel_path = wpd.parent.relative_to(src_root)
+                out_dir = dest_folder / rel_path
+            else:
+                out_dir = dest_folder
         else:
-            out_dir = dest_folder
-    else:
-        # Original behavior: same folder or "Converted" subfolder
-        out_dir = (wpd.parent / "Converted") if organize else wpd.parent
-    
-    out_dir.mkdir(exist_ok=True, parents=True)
-    cmd = [
-        SOFFICE, "--headless", "--convert-to", "docx",
-        "--outdir", str(out_dir), str(wpd)
-    ]
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    if res.returncode:
-        print("failed"); print(res.stdout.strip())
-    else:
-        print("✓")
+            # Original behavior: same folder or "Converted" subfolder
+            out_dir = (wpd.parent / "Converted") if organize else wpd.parent
+        
+        # Create output directory with error handling
+        try:
+            out_dir.mkdir(exist_ok=True, parents=True)
+        except PermissionError:
+            print("failed - permission denied creating output directory")
+            return False
+        except OSError as e:
+            print(f"failed - cannot create output directory: {e}")
+            return False
+        
+        # Check if output file already exists
+        output_file = out_dir / f"{wpd.stem}.docx"
+        if output_file.exists():
+            print("skipped - output file already exists")
+            return True
+        
+        # Run LibreOffice conversion
+        cmd = [
+            SOFFICE, "--headless", "--convert-to", "docx",
+            "--outdir", str(out_dir), str(wpd)
+        ]
+        
+        try:
+            res = subprocess.run(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, 
+                text=True,
+                timeout=60  # 60 second timeout
+            )
+        except subprocess.TimeoutExpired:
+            print("failed - conversion timeout")
+            return False
+        except FileNotFoundError:
+            print("failed - LibreOffice not found")
+            return False
+        
+        if res.returncode:
+            error_msg = res.stdout.strip() if res.stdout.strip() else "unknown error"
+            print(f"failed - {error_msg}")
+            return False
+        else:
+            # Verify the output file was created
+            if output_file.exists():
+                print("✓")
+                return True
+            else:
+                print("failed - output file not created")
+                return False
+                
+    except Exception as e:
+        print(f"failed - unexpected error: {e}")
+        return False
 
 def walk_and_convert(
     path: Path,
     organize: bool = False,
-    dest_folder: Path = None,
+    dest_folder: Optional[Path] = None,
     retain_structure: bool = False,
     src_root: Optional[Path] = None,
+    recursive: bool = True,
 ):
+    """
+    Convert WPD files and return conversion statistics.
+    
+    Returns:
+        dict: Statistics with 'total', 'successful', 'failed', 'skipped' counts
+    """
+    stats = {'total': 0, 'successful': 0, 'failed': 0, 'skipped': 0}
+    
     if src_root is None:
         src_root = path if path.is_dir() else path.parent
+        
     if path.is_file() and path.suffix.lower() == ".wpd":
-        convert_file(path, organize, dest_folder, retain_structure, src_root)
+        stats['total'] = 1
+        result = convert_file(path, organize, dest_folder, retain_structure, src_root)
+        if result is True:
+            stats['successful'] = 1
+        elif result is False:
+            stats['failed'] = 1
     elif path.is_dir():
-        for wpd in path.rglob("*.wpd"):
-            convert_file(wpd, organize, dest_folder, retain_structure, src_root)
+        # Use rglob for recursive search or glob for non-recursive search
+        finder = path.rglob if recursive else path.glob
+        wpd_files = list(finder("*.wpd"))
+        if not wpd_files:
+            print("No .wpd files found.")
+            return stats
+            
+        stats['total'] = len(wpd_files)
+        for wpd in wpd_files:
+            result = convert_file(wpd, organize, dest_folder, retain_structure, src_root)
+            if result is True:
+                stats['successful'] += 1
+            elif result is False:
+                stats['failed'] += 1
+            # Note: skipped files are counted in convert_file when it returns True for existing files
     else:
         print("No .wpd files found.")
+    
+    return stats
 
 
 # ------------- GUI LAUNCHER -------------
@@ -198,17 +313,26 @@ def launch_gui():
             dest_folder = Path(dest_path.get()).expanduser()
         
         path = Path(target_path.get()).expanduser()
-        src_root = path if path.is_dir() else path.parent
-        if path.is_file():
-            convert_file(path, organize_files, dest_folder, retain_structure.get(), src_root)
-        elif path.is_dir():
-            if recurse.get():
-                for wpd in path.rglob("*.wpd"):
-                    convert_file(wpd, organize_files, dest_folder, retain_structure.get(), src_root)
-            else:
-                for wpd in path.glob("*.wpd"):
-                    convert_file(wpd, organize_files, dest_folder, retain_structure.get(), src_root)
-        messagebox.showinfo("Finished", "Conversion complete.")
+        
+        # Use walk_and_convert for consistent behavior
+        stats = walk_and_convert(
+            path,
+            organize=organize_files,
+            dest_folder=dest_folder,
+            retain_structure=retain_structure.get(),
+            recursive=recurse.get()
+        )
+        
+        # Show detailed results
+        if stats['total'] > 0:
+            message = f"Conversion complete!\n\n"
+            message += f"Total files: {stats['total']}\n"
+            message += f"Successful: {stats['successful']}\n"
+            if stats['failed'] > 0:
+                message += f"Failed: {stats['failed']}\n"
+            messagebox.showinfo("Finished", message)
+        else:
+            messagebox.showinfo("Finished", "No .wpd files found to convert.")
 
     # ---------- UI layout ----------
     # Title section
@@ -319,6 +443,7 @@ def main():
         
         # Use simple flags for CLI options
         organize = "--organize" in sys.argv
+        recursive = "--recursive" in sys.argv  # New flag for recursive search
         
         # Check for destination folder parameter
         dest_folder = None
@@ -330,7 +455,23 @@ def main():
             elif arg == "--retain-structure":
                 retain_structure = True
         
-        walk_and_convert(target, organize=organize, dest_folder=dest_folder, retain_structure=retain_structure)
+        stats = walk_and_convert(
+            target, 
+            organize=organize, 
+            dest_folder=dest_folder, 
+            retain_structure=retain_structure,
+            recursive=recursive
+        )
+        
+        # Print summary statistics
+        if stats['total'] > 0:
+            print(f"\nConversion Summary:")
+            print(f"Total files: {stats['total']}")
+            print(f"Successful: {stats['successful']}")
+            if stats['failed'] > 0:
+                print(f"Failed: {stats['failed']}")
+        else:
+            print("\nNo .wpd files found to convert.")
     else:                                          # double‑clicked .app → show GUI first
         launch_gui()
 

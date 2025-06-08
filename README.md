@@ -30,8 +30,17 @@ Convert WordPerfect files (`.wpd`) to Word documents (`.docx`) using LibreOffice
   - **‘Converted’ sub-folder** (`--organize` CLI flag or UI toggle)  
   - **Custom destination** via `--dest /path` CLI flag or UI, with optional `--retain-structure` / “Preserve folder structure” to mirror the source hierarchy.
 
-- **Smart LibreOffice detection**  
-  Auto-locates `soffice` on `$PATH` or `/Applications/LibreOffice.app/...` (macOS), with clear error prompts if missing.
+- **Cross-platform LibreOffice detection**  
+  Auto-locates `soffice` on macOS (including Homebrew installations) and Windows, with clear error prompts if missing.
+
+- **Robust error handling**  
+  Comprehensive validation, timeout protection, and detailed error messages for failed conversions.
+
+- **Conversion statistics**  
+  Detailed reporting of successful, failed, and skipped files with summary statistics.
+
+- **File conflict handling**  
+  Automatically skips files that already exist in the destination to prevent overwriting.
 
 ### CLI & Tkinter GUI App
 
@@ -46,10 +55,14 @@ Convert WordPerfect files (`.wpd`) to Word documents (`.docx`) using LibreOffice
 - **Dark-mode styling**  
   Beautiful Tailwind-based dark theme with system fonts.
 
+- **Progress visualization**  
+  Animated progress bar with percentage display and checkmark completion indicator.
+
 - **Dynamic UX**  
   - Contextual controls: hide/show inputs based on user choices  
   - Live summary: displays selected source, destination, and conversion results  
-  - File dialogs via native OS dialogs (no additional dependencies)
+  - File dialogs via native OS dialogs (no additional dependencies)  
+  - Visual feedback with color-coded success/error states
 
 ---
 
@@ -94,6 +107,9 @@ $ python3 wpd_to_docx.py /path/to/file.wpd
 
 # Folder (non-recursive)
 $ python3 wpd_to_docx.py /path/to/folder
+
+# Folder with recursive search
+$ python3 wpd_to_docx.py /path/to/folder --recursive
 
 # Folder with 'Converted' sub-folder
 $ python3 wpd_to_docx.py /path/to/folder --organize
