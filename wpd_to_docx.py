@@ -26,19 +26,44 @@ def ensure_soffice():
     """
     Make sure the global ``SOFFICE`` variable points to a LibreOffice
     binary. First tries whatever is on PATH, then falls back to the
-    default macOS install location /Applications/LibreOffice.app.
+    default install locations for macOS and Windows.
     """
     global SOFFICE
     if SOFFICE:  # already found via shutil.which
         return
-    alt = Path("/Applications/LibreOffice.app/Contents/MacOS/soffice")
-    if alt.exists():
-        SOFFICE = str(alt)
-    else:
-        sys.exit(
-            "LibreOffice is required.  Install it from libreoffice.org "
-            "or with Homebrew:\n\n  brew install --cask libreoffice"
-        )
+    
+    # Try common installation paths
+    possible_paths = []
+    
+    # macOS paths
+    possible_paths.extend([
+        Path("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
+        Path("/opt/homebrew/bin/soffice"),  # Homebrew on Apple Silicon
+        Path("/usr/local/bin/soffice"),     # Homebrew on Intel
+    ])
+    
+    # Windows paths
+    possible_paths.extend([
+        Path("C:/Program Files/LibreOffice/program/soffice.exe"),
+        Path("C:/Program Files (x86)/LibreOffice/program/soffice.exe"),
+        Path(f"{Path.home()}/AppData/Local/Programs/LibreOffice/program/soffice.exe"),
+    ])
+    
+    for path in possible_paths:
+        if path.exists():
+            SOFFICE = str(path)
+            return
+    
+    # If we get here, LibreOffice wasn't found
+    install_msg = (
+        "LibreOffice is required. Install it from libreoffice.org"
+    )
+    if sys.platform == "darwin":  # macOS
+        install_msg += " or with Homebrew:\n\n  brew install --cask libreoffice"
+    elif sys.platform == "win32":  # Windows
+        install_msg += "\n\nDownload from: https://www.libreoffice.org/download/download/"
+    
+    sys.exit(install_msg)
 
 def convert_file(
     wpd: Path,
