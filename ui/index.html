@@ -120,18 +120,59 @@ Destination: Custom: [object HTMLDivElement]</pre>
         alert("Please select a destination folder.");
         return;
       }
-      // Build options object
-      const opts = {
-        recursive: document.getElementById('chkRecursive').checked,
-        destType,
-        destPath: window.destPath || "",
-        preserve: document.getElementById('chkStructure').checked
-      };
-      // Call Python conversion and get log
-      const result = await window.pywebview.api.convert(window.sourcePath, opts);
-      // Display result in summary area
-      document.getElementById('summary').textContent = result;
-      document.getElementById('summaryContainer').classList.remove('hidden');
+      
+      // Disable convert button and show processing state
+      btnConvert.disabled = true;
+      btnConvert.textContent = "Converting...";
+      
+      try {
+        // Build options object
+        const opts = {
+          recursive: document.getElementById('chkRecursive').checked,
+          destType,
+          destPath: window.destPath || "",
+          preserve: document.getElementById('chkStructure').checked
+        };
+        
+        // Call Python conversion and get result
+        const result = await window.pywebview.api.convert(window.sourcePath, opts);
+        
+        // Display result in summary area
+        let displayText = result.message;
+        
+        // Add detailed statistics if available
+        if (result.stats && result.stats.total > 0) {
+          displayText += "\n\nDetailed Statistics:";
+          displayText += `\n• Total files found: ${result.stats.total}`;
+          displayText += `\n• Successfully converted: ${result.stats.successful}`;
+          if (result.stats.failed > 0) {
+            displayText += `\n• Failed conversions: ${result.stats.failed}`;
+          }
+          if (result.stats.skipped > 0) {
+            displayText += `\n• Skipped (already exist): ${result.stats.skipped}`;
+          }
+        }
+        
+        document.getElementById('summary').textContent = displayText;
+        document.getElementById('summaryContainer').classList.remove('hidden');
+        
+        // Show success/error styling
+        const summaryElement = document.getElementById('summary');
+        if (result.success) {
+          summaryElement.style.color = '#10b981'; // green
+        } else {
+          summaryElement.style.color = '#ef4444'; // red
+        }
+        
+      } catch (error) {
+        document.getElementById('summary').textContent = `Error: ${error.message}`;
+        document.getElementById('summaryContainer').classList.remove('hidden');
+        document.getElementById('summary').style.color = '#ef4444'; // red
+      } finally {
+        // Re-enable convert button
+        btnConvert.disabled = false;
+        btnConvert.textContent = "Convert Files";
+      }
     };
 
     updateSummary(); // initialise
