@@ -206,16 +206,15 @@ def launch_gui():
             dest_folder = Path(dest_path.get()).expanduser()
         
         path = Path(target_path.get()).expanduser()
-        src_root = path if path.is_dir() else path.parent
-        if path.is_file():
-            convert_file(path, organize_files, dest_folder, retain_structure.get(), src_root)
-        elif path.is_dir():
-            if recurse.get():
-                for wpd in path.rglob("*.wpd"):
-                    convert_file(wpd, organize_files, dest_folder, retain_structure.get(), src_root)
-            else:
-                for wpd in path.glob("*.wpd"):
-                    convert_file(wpd, organize_files, dest_folder, retain_structure.get(), src_root)
+        
+        # Use walk_and_convert for consistent behavior
+        walk_and_convert(
+            path,
+            organize=organize_files,
+            dest_folder=dest_folder,
+            retain_structure=retain_structure.get(),
+            recursive=recurse.get()
+        )
         messagebox.showinfo("Finished", "Conversion complete.")
 
     # ---------- UI layout ----------
