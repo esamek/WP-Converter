@@ -123,3 +123,40 @@ The system supports three output modes:
 - **Same location** - Output .docx files alongside .wpd sources
 - **Organized** - Create 'Converted' subfolder for outputs
 - **Custom destination** - User-specified folder with optional structure preservation
+
+## Planning Document Organization
+
+### Structure
+All planning and design documents are organized in the `planning/` directory:
+
+```
+planning/
+├── feature-name-plan.md      # Feature planning documents
+├── improvement-name-plan.md  # Major improvement plans
+└── completed-plans/          # Archive for reference
+```
+
+### Naming Convention
+- Use descriptive, hyphenated names: `windows-support-plan.md`
+- Include plan type in name: `feature-`, `improvement-`, `refactor-`
+- Keep names concise but clear
+
+### Planning Workflow
+1. **Create Planning Document**: Before starting any non-trivial feature or improvement, create a planning document in `planning/`
+2. **Document Structure**: Include Executive Summary, Current State Analysis, Required Changes, Implementation Steps, and Success Criteria
+3. **Track Progress**: Use TodoWrite to track implementation progress against the plan
+4. **Archive Completed Plans**: Move completed plans to `planning/completed-plans/` for reference
+
+### When to Create Planning Documents
+- Multi-step features requiring 3+ distinct tasks
+- Major architectural changes or refactoring
+- Cross-platform compatibility improvements
+- Performance optimization efforts
+- Security enhancements
+- Integration of new technologies or frameworks
+
+This ensures systematic approach to development and maintains institutional knowledge for future reference.
+
+## Claude Memories
+
+- Always update plan .md files to mark that tasks are completed after they are completed and ONLY when they are completed.
