@@ -20,7 +20,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
-SOFFICE = shutil.which("soffice")  # LibreOffice executable
+# Try to find LibreOffice executable on PATH
+SOFFICE = shutil.which("soffice")
+if not SOFFICE and sys.platform == "win32":
+    # On Windows, also try with .exe extension explicitly
+    SOFFICE = shutil.which("soffice.exe")
 
 def ensure_soffice():
     """
@@ -44,9 +48,20 @@ def ensure_soffice():
     
     # Windows paths
     possible_paths.extend([
+        # Standard installation paths
         Path("C:/Program Files/LibreOffice/program/soffice.exe"),
         Path("C:/Program Files (x86)/LibreOffice/program/soffice.exe"),
+        
+        # User-specific installations
         Path(f"{Path.home()}/AppData/Local/Programs/LibreOffice/program/soffice.exe"),
+        Path(f"{Path.home()}/AppData/Roaming/LibreOffice/program/soffice.exe"),
+        
+        # Microsoft Store version
+        Path(f"{Path.home()}/AppData/Local/Microsoft/WindowsApps/soffice.exe"),
+        
+        # Portable installations
+        Path("C:/LibreOffice/program/soffice.exe"),
+        Path("D:/LibreOffice/program/soffice.exe"),
     ])
     
     for path in possible_paths:
@@ -55,13 +70,23 @@ def ensure_soffice():
             return
     
     # If we get here, LibreOffice wasn't found
-    install_msg = (
-        "LibreOffice is required. Install it from libreoffice.org"
-    )
+    install_msg = "LibreOffice is required but was not found.\n\n"
+    
     if sys.platform == "darwin":  # macOS
-        install_msg += " or with Homebrew:\n\n  brew install --cask libreoffice"
+        install_msg += ("Install LibreOffice:\n"
+                       "• Download from: https://www.libreoffice.org/download/download/\n"
+                       "• Or use Homebrew: brew install --cask libreoffice")
     elif sys.platform == "win32":  # Windows
-        install_msg += "\n\nDownload from: https://www.libreoffice.org/download/download/"
+        install_msg += ("Install LibreOffice:\n"
+                       "• Download from: https://www.libreoffice.org/download/download/\n"
+                       "• After installation, restart this application")
+    else:  # Linux/other
+        install_msg += ("Install LibreOffice:\n"
+                       "• Download from: https://www.libreoffice.org/download/download/\n"
+                       "• Or use your package manager:\n"
+                       "  - Ubuntu/Debian: sudo apt install libreoffice\n"
+                       "  - Fedora: sudo dnf install libreoffice\n"
+                       "  - Arch: sudo pacman -S libreoffice-still")
     
     sys.exit(install_msg)
 
@@ -286,13 +311,23 @@ def launch_gui():
         # make sure LibreOffice (soffice) is available *after* GUI has loaded,
         # otherwise the app would exit before the window appears when launched
         if SOFFICE is None:
-            messagebox.showerror(
-                "LibreOffice not found",
-                "The converter needs LibreOffice. "
-                "Install it from libreoffice.org or with Homebrew:\n\n"
-                "  brew install --cask libreoffice\n\n"
-                "Then try again."
-            )
+            # Create platform-specific installation message
+            base_msg = "The converter needs LibreOffice. "
+            if sys.platform == "darwin":  # macOS
+                install_instructions = ("Install it from libreoffice.org or with Homebrew:\n\n"
+                                      "  brew install --cask libreoffice\n\n"
+                                      "Then try again.")
+            elif sys.platform == "win32":  # Windows
+                install_instructions = ("Install it from libreoffice.org:\n\n"
+                                      "https://www.libreoffice.org/download/download/\n\n"
+                                      "After installation, restart this application.")
+            else:  # Linux/other
+                install_instructions = ("Install it from libreoffice.org or your package manager:\n\n"
+                                      "  sudo apt install libreoffice  # Ubuntu/Debian\n"
+                                      "  sudo dnf install libreoffice  # Fedora\n\n"
+                                      "Then try again.")
+            
+            messagebox.showerror("LibreOffice not found", base_msg + install_instructions)
             return
         if not target_path.get():
             messagebox.showerror("Error", "Please select a file or folder first.")

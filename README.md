@@ -68,12 +68,12 @@ Convert WordPerfect files (`.wpd`) to Word documents (`.docx`) using LibreOffice
 
 ## Requirements
 
-- **macOS** (Intel or Apple Silicon) or **Windows**  
+- **macOS** (Intel or Apple Silicon), **Windows**, or **Linux**  
 - **Python 3.9+**  
-- **LibreOffice** (headless) – install via Homebrew:  
-  ```bash
-  brew install --cask libreoffice
-  ```
+- **LibreOffice** (headless) – platform-specific installation:
+  - **macOS:** [Download](https://www.libreoffice.org/download/download/) or `brew install --cask libreoffice`
+  - **Windows:** [Download](https://www.libreoffice.org/download/download/) from libreoffice.org
+  - **Linux:** `sudo apt install libreoffice` (Ubuntu/Debian) or equivalent for your distribution
 - For Web UI: **PyWebView** (`pip install pywebview`)
 
 ---
@@ -89,12 +89,13 @@ python3 -m pip install -r requirements.txt
 python3 rebuild.py
 ```
 
-This generates in `dist/`:
+This generates platform-specific executables in `dist/`:
 
-- **WP Converter.app**  
-- **WP Converter Web UI.app**
+- **macOS:** `WP Converter.app` and `WP Converter Web UI.app`
+- **Windows:** `WP Converter.exe` and `WP Converter Web UI.exe`  
+- **Linux:** Equivalent executable files
 
-You can zip or DMG these bundles for distribution.
+The build process automatically selects appropriate icons and configurations for each platform.
 
 ### CLI Usage
 
@@ -124,7 +125,10 @@ $ python3 wpd_to_docx.py /path/to/folder --dest /path/to/output --retain-structu
 python3 wpd_to_docx.py
 ```
 
-Double-click **WP Converter.app** (macOS) or run the generated executable on Windows.
+**Platform-specific executables:**
+- **macOS:** Double-click **WP Converter.app**
+- **Windows:** Double-click **WP Converter.exe** or run `Convert WP.bat`
+- **Linux:** Run the generated executable
 
 ### Web UI
 

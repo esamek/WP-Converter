@@ -19,7 +19,14 @@ APPS = [
     ("WP Converter", ROOT / "wpd_to_docx.py", []),
     ("WP Converter Web UI", ROOT / "web_gui.py", ["--add-data", "ui" + os.pathsep + "ui"]),
 ]
-ICON = ROOT / "icon.icns"
+
+# Select appropriate icon based on platform
+if sys.platform == "win32":
+    ICON = ROOT / "icon.ico"
+elif sys.platform == "darwin":
+    ICON = ROOT / "icon.icns"
+else:
+    ICON = None  # Linux/other platforms
 
 def clean():
     """Remove PyInstaller artifacts for all builds."""
@@ -39,7 +46,7 @@ def build():
             sys.executable, "-m", "PyInstaller",
             "--windowed", "--onedir", "--name", name
         ]
-        if ICON.exists():
+        if ICON and ICON.exists():
             args += ["--icon", str(ICON)]
         args += extras
         args.append(str(script))
