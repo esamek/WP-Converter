@@ -1,0 +1,11 @@
+# WP Converter Dependencies
+# Core dependencies for running the application
+
+# Web UI framework (required for Web UI version)
+pywebview>=4.0.0
+
+# Build tool (required for creating executables)
+pyinstaller>=5.0
+
+# Note: tkinter is included with Python standard library
+# Note: LibreOffice must be installed separately (see README)

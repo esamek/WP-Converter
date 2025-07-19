@@ -74,7 +74,47 @@ Convert WordPerfect files (`.wpd`) to Word documents (`.docx`) using LibreOffice
   - **macOS:** [Download](https://www.libreoffice.org/download/download/) or `brew install --cask libreoffice`
   - **Windows:** [Download](https://www.libreoffice.org/download/download/) from libreoffice.org
   - **Linux:** `sudo apt install libreoffice` (Ubuntu/Debian) or equivalent for your distribution
-- For Web UI: **PyWebView** (`pip install pywebview`)
+- **Python dependencies**: Install via `pip install -r requirements.txt`
+  - PyWebView (for Web UI)
+  - PyInstaller (for building executables)
+
+---
+
+## Windows Installation (Step-by-Step)
+
+### Prerequisites
+1. **Install Python 3.9+**
+   - Download from [python.org](https://www.python.org/downloads/)
+   - ⚠️ **Important**: Check "Add Python to PATH" during installation
+
+2. **Install LibreOffice**
+   - Download from [libreoffice.org](https://www.libreoffice.org/download/download/)
+   - Choose the Windows x86-64 version
+   - Install with default settings
+
+### Quick Start (Web UI)
+1. **Download/Clone this repository**
+   ```cmd
+   git clone <repository-url>
+   cd "WP Converter"
+   ```
+
+2. **Install Python dependencies**
+   ```cmd
+   pip install -r requirements.txt
+   ```
+
+3. **Run the Web UI**
+   ```cmd
+   python web_gui.py
+   ```
+   Or double-click `Convert WP.bat`
+
+### Building Executable (Optional)
+```cmd
+python rebuild.py
+```
+This creates `WP Converter.exe` and `WP Converter Web UI.exe` in the `dist/` folder.
 
 ---
 
@@ -85,7 +125,7 @@ Convert WordPerfect files (`.wpd`) to Word documents (`.docx`) using LibreOffice
 From the project root:
 
 ```bash
-python3 -m pip install -r requirements.txt
+pip install -r requirements.txt
 python3 rebuild.py
 ```
 
@@ -135,7 +175,7 @@ python3 wpd_to_docx.py
 #### Development
 
 ```bash
-pip install pywebview
+pip install -r requirements.txt
 python3 web_gui.py
 ```
 
