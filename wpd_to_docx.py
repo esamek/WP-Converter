@@ -13,12 +13,15 @@ $ python wpd_to_docx.py /path/to/folder --organize  # place files in 'Converted'
 $ python wpd_to_docx.py /path/to/folder --dest /path/to/destination  # custom destination
 $ python wpd_to_docx.py /path/to/folder --dest /path/to/destination --retain-structure  # keep folder structure
 """
-import subprocess, sys, shutil
+import subprocess, sys, shutil, threading, os, tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
+
+MAX_WORKERS = min(8, os.cpu_count() or 1)
 
 # Try to find LibreOffice executable on PATH
 SOFFICE = shutil.which("soffice")
@@ -142,26 +145,33 @@ def convert_file(
             print("skipped - output file already exists")
             return True
         
-        # Run LibreOffice conversion
-        cmd = [
-            SOFFICE, "--headless", "--convert-to", "docx",
-            "--outdir", str(out_dir), str(wpd)
-        ]
-        
+        # Each call gets its own LibreOffice user profile so parallel workers
+        # don't collide on the shared ~/.config/libreoffice lock.
+        lo_profile = Path(tempfile.mkdtemp(prefix="lo_worker_"))
         try:
-            res = subprocess.run(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT, 
-                text=True,
-                timeout=60  # 60 second timeout
-            )
-        except subprocess.TimeoutExpired:
-            print("failed - conversion timeout")
-            return False
-        except FileNotFoundError:
-            print("failed - LibreOffice not found")
-            return False
+            cmd = [
+                SOFFICE,
+                f"-env:UserInstallation={lo_profile.as_uri()}",
+                "--headless", "--convert-to", "docx",
+                "--outdir", str(out_dir), str(wpd)
+            ]
+
+            try:
+                res = subprocess.run(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    timeout=60  # 60 second timeout
+                )
+            except subprocess.TimeoutExpired:
+                print("failed - conversion timeout")
+                return False
+            except FileNotFoundError:
+                print("failed - LibreOffice not found")
+                return False
+        finally:
+            shutil.rmtree(lo_profile, ignore_errors=True)
         
         if res.returncode:
             error_msg = res.stdout.strip() if res.stdout.strip() else "unknown error"
@@ -187,18 +197,24 @@ def walk_and_convert(
     retain_structure: bool = False,
     src_root: Optional[Path] = None,
     recursive: bool = True,
+    progress_callback=None,
+    max_workers: int = MAX_WORKERS,
+    known_total: int = 0,
 ):
     """
     Convert WPD files and return conversion statistics.
-    
+
+    progress_callback(done: int, total: int) is called after each file completes.
+    known_total: if > 0, skip the counting pass and use this value instead.
+
     Returns:
         dict: Statistics with 'total', 'successful', 'failed', 'skipped' counts
     """
     stats = {'total': 0, 'successful': 0, 'failed': 0, 'skipped': 0}
-    
+
     if src_root is None:
         src_root = path if path.is_dir() else path.parent
-        
+
     if path.is_file() and path.suffix.lower() == ".wpd":
         stats['total'] = 1
         result = convert_file(path, organize, dest_folder, retain_structure, src_root)
@@ -206,25 +222,44 @@ def walk_and_convert(
             stats['successful'] = 1
         elif result is False:
             stats['failed'] = 1
+        if progress_callback:
+            progress_callback(1, 1)
     elif path.is_dir():
-        # Use rglob for recursive search or glob for non-recursive search
         finder = path.rglob if recursive else path.glob
-        wpd_files = list(finder("*.wpd"))
-        if not wpd_files:
+
+        # Pass 1: count (O(1) memory) — skip if caller already has the count
+        if known_total > 0:
+            stats['total'] = known_total
+        else:
+            stats['total'] = sum(1 for _ in finder("*.wpd"))
+
+        if stats['total'] == 0:
             print("No .wpd files found.")
             return stats
-            
-        stats['total'] = len(wpd_files)
-        for wpd in wpd_files:
-            result = convert_file(wpd, organize, dest_folder, retain_structure, src_root)
-            if result is True:
-                stats['successful'] += 1
-            elif result is False:
-                stats['failed'] += 1
-            # Note: skipped files are counted in convert_file when it returns True for existing files
+
+        lock = threading.Lock()
+        processed = 0
+
+        def run_one(wpd):
+            return wpd, convert_file(wpd, organize, dest_folder, retain_structure, src_root)
+
+        # Pass 2: parallel conversion (stream — no list materialised)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(run_one, wpd): wpd for wpd in finder("*.wpd")}
+            for future in as_completed(futures):
+                _, result = future.result()
+                with lock:
+                    if result is True:
+                        stats['successful'] += 1
+                    else:
+                        stats['failed'] += 1
+                    processed += 1
+                    current = processed
+                if progress_callback:
+                    progress_callback(current, stats['total'])
     else:
         print("No .wpd files found.")
-    
+
     return stats
 
 
@@ -326,48 +361,64 @@ def launch_gui():
                                       "  sudo apt install libreoffice  # Ubuntu/Debian\n"
                                       "  sudo dnf install libreoffice  # Fedora\n\n"
                                       "Then try again.")
-            
+
             messagebox.showerror("LibreOffice not found", base_msg + install_instructions)
             return
         if not target_path.get():
             messagebox.showerror("Error", "Please select a file or folder first.")
             return
-            
+
         # Check if custom destination is selected but no path provided
         if destination_type.get() == "custom" and not dest_path.get():
             messagebox.showerror("Error", "Please select a destination folder.")
             return
-        
+
         # Set destination folder and options based on radio selection
         dest_folder = None
         organize_files = False
-        
+
         if destination_type.get() == "converted":
             organize_files = True
         elif destination_type.get() == "custom":
             dest_folder = Path(dest_path.get()).expanduser()
-        
+
         path = Path(target_path.get()).expanduser()
-        
-        # Use walk_and_convert for consistent behavior
-        stats = walk_and_convert(
-            path,
-            organize=organize_files,
-            dest_folder=dest_folder,
-            retain_structure=retain_structure.get(),
-            recursive=recurse.get()
-        )
-        
-        # Show detailed results
-        if stats['total'] > 0:
-            message = f"Conversion complete!\n\n"
-            message += f"Total files: {stats['total']}\n"
-            message += f"Successful: {stats['successful']}\n"
-            if stats['failed'] > 0:
-                message += f"Failed: {stats['failed']}\n"
-            messagebox.showinfo("Finished", message)
-        else:
-            messagebox.showinfo("Finished", "No .wpd files found to convert.")
+
+        # Disable button and reset progress bar
+        convert_button.config(state=tk.DISABLED)
+        progress_var.set(0)
+        progress_label.config(text="")
+
+        def progress_callback(done, total):
+            pct = (done / total) * 100
+            root.after(0, lambda: progress_var.set(pct))
+            root.after(0, lambda: progress_label.config(text=f"{done}/{total} files"))
+
+        def do_conversion():
+            stats = walk_and_convert(
+                path,
+                organize=organize_files,
+                dest_folder=dest_folder,
+                retain_structure=retain_structure.get(),
+                recursive=recurse.get(),
+                progress_callback=progress_callback,
+            )
+            root.after(0, lambda: on_done(stats))
+
+        def on_done(stats):
+            convert_button.config(state=tk.NORMAL)
+            progress_var.set(100)
+            if stats['total'] > 0:
+                message = "Conversion complete!\n\n"
+                message += f"Total files: {stats['total']}\n"
+                message += f"Successful: {stats['successful']}\n"
+                if stats['failed'] > 0:
+                    message += f"Failed: {stats['failed']}\n"
+                messagebox.showinfo("Finished", message)
+            else:
+                messagebox.showinfo("Finished", "No .wpd files found to convert.")
+
+        threading.Thread(target=do_conversion, daemon=True).start()
 
     # ---------- UI layout ----------
     # Title section
@@ -459,11 +510,17 @@ def launch_gui():
     
     # 4. ACTION SECTION
     action_frame = create_section(main_frame, "CONVERT", pady=(15, 10))
-    
-    convert_button = tk.Button(action_frame, text="Convert Files", command=run_conversion, 
-                            width=20, bg="#4CAF50", fg="white", relief=tk.RAISED, 
-                            font=("", 11, "bold"))
+
+    convert_button = tk.Button(action_frame, text="Convert Files", command=run_conversion,
+                               width=20, bg="#4CAF50", fg="white", relief=tk.RAISED,
+                               font=("", 11, "bold"))
     convert_button.pack(pady=5)
+
+    progress_var = tk.DoubleVar(value=0)
+    ttk.Progressbar(action_frame, variable=progress_var, maximum=100,
+                    mode='determinate', length=300).pack(pady=5)
+    progress_label = tk.Label(action_frame, text="")
+    progress_label.pack()
 
     # Initialize the display
     update_selection_display()
