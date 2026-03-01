@@ -19,49 +19,55 @@ Convert WordPerfect files (`.wpd`) to Word documents (`.docx`) using LibreOffice
 
 ### Common (Both Apps)
 
-- **Single-file & Batch conversion**  
+- **Single-file & Batch conversion**
   Convert an individual `.wpd` or all `.wpd` files in a folder.
 
-- **Optional recursion**  
+- **Parallel conversion**
+  Batch jobs run up to 8 concurrent LibreOffice workers (capped at CPU count), each with an isolated user profile to prevent lock collisions. Large folders convert significantly faster than serial processing.
+
+- **Scales to large file sets**
+  File discovery uses a streaming two-pass approach — a count pass followed by a generator-based conversion pass — so memory usage stays constant regardless of folder size.
+
+- **Optional recursion**
   Enable “Search sub-folders” to process nested directories.
 
-- **Automatic or custom output**  
-  - **Same location** (default)  
-  - **‘Converted’ sub-folder** (`--organize` CLI flag or UI toggle)  
+- **Automatic or custom output**
+  - **Same location** (default)
+  - **’Converted’ sub-folder** (`--organize` CLI flag or UI toggle)
   - **Custom destination** via `--dest /path` CLI flag or UI, with optional `--retain-structure` / “Preserve folder structure” to mirror the source hierarchy.
 
-- **Cross-platform LibreOffice detection**  
+- **Cross-platform LibreOffice detection**
   Auto-locates `soffice` on macOS (including Homebrew installations) and Windows, with clear error prompts if missing.
 
-- **Robust error handling**  
+- **Robust error handling**
   Comprehensive validation, timeout protection, and detailed error messages for failed conversions.
 
-- **Conversion statistics**  
+- **Conversion statistics**
   Detailed reporting of successful, failed, and skipped files with summary statistics.
 
-- **File conflict handling**  
+- **File conflict handling**
   Automatically skips files that already exist in the destination to prevent overwriting.
 
 ### CLI & Tkinter GUI App
 
-- **Interactive prompt**  
+- **Interactive prompt**
   Fallback terminal prompt if no GUI libraries are available.
 
-- **Tkinter GUI**  
-  Standalone window for non-technical users.
+- **Tkinter GUI**
+  Standalone window with a live progress bar and file counter. Conversion runs on a background thread so the window stays responsive.
 
 ### Web UI App
 
-- **Dark-mode styling**  
+- **Dark-mode styling**
   Beautiful Tailwind-based dark theme with system fonts.
 
-- **Progress visualization**  
-  Animated progress bar with percentage display and checkmark completion indicator.
+- **Real-time progress**
+  Progress bar and file counter (`done / total`) update live as each file completes, pushed directly from the Python worker thread via `evaluate_js`.
 
-- **Dynamic UX**  
-  - Contextual controls: hide/show inputs based on user choices  
-  - Live summary: displays selected source, destination, and conversion results  
-  - File dialogs via native OS dialogs (no additional dependencies)  
+- **Dynamic UX**
+  - Contextual controls: hide/show inputs based on user choices
+  - Live summary: displays selected source, destination, and conversion results
+  - File dialogs via native OS dialogs (no additional dependencies)
   - Visual feedback with color-coded success/error states
 
 ---
