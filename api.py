@@ -7,8 +7,7 @@ JavaScript side can use them directly.
 from pathlib import Path
 from typing import Optional
 import webview
-import time
-from wpd_to_docx import ensure_soffice, convert_file, walk_and_convert
+from wpd_to_docx import ensure_soffice, walk_and_convert
 
 
 class API:
@@ -41,22 +40,21 @@ class API:
         try:
             recursive = bool(opts.get("recursive"))
             src = Path(src_path).expanduser()
-            
+
             if src.is_file() and src.suffix.lower() == ".wpd":
                 return 1
             elif src.is_dir():
                 finder = src.rglob if recursive else src.glob
-                wpd_files = list(finder("*.wpd"))
-                return len(wpd_files)
+                return sum(1 for _ in finder("*.wpd"))
             else:
                 return 0
         except Exception:
             return 0
 
-    def convert_with_progress(self, src_path: str, opts: dict) -> dict:
+    def convert_with_progress(self, src_path: str, opts: dict, prefetched_total: int = 0) -> dict:
         """
-        Convert files with progress updates.
-        This is a generator-like function that yields progress updates.
+        Convert files with real-time progress updates pushed to JS via evaluate_js().
+        prefetched_total: count already obtained by JS; if > 0 skips the counting pass.
         """
         try:
             ensure_soffice()
@@ -69,64 +67,30 @@ class API:
             preserve = bool(opts.get("preserve", False))
 
             src = Path(src_path).expanduser()
-            
-            # Get total file count
-            total_files = self.get_file_count(src_path, opts)
-            
-            if total_files == 0:
-                return {
-                    "success": False,
-                    "message": "No .wpd files found to convert.",
-                    "stats": {"total": 0, "successful": 0, "failed": 0, "skipped": 0},
-                    "progress": 100
-                }
 
-            # Process files with progress tracking
-            processed = 0
-            successful = 0
-            failed = 0
-            
-            if src.is_file() and src.suffix.lower() == ".wpd":
-                # Single file conversion
-                from wpd_to_docx import convert_file
-                result = convert_file(src, organize, dest_root, preserve, src.parent)
-                processed = 1
-                if result:
-                    successful = 1
-                else:
-                    failed = 1
-            elif src.is_dir():
-                # Directory conversion
-                finder = src.rglob if recursive else src.glob
-                wpd_files = list(finder("*.wpd"))
-                
-                for wpd in wpd_files:
-                    from wpd_to_docx import convert_file
-                    result = convert_file(wpd, organize, dest_root, preserve, src)
-                    processed += 1
-                    if result:
-                        successful += 1
-                    else:
-                        failed += 1
-                    
-                    # Small delay to make progress visible
-                    time.sleep(0.1)
+            def progress_callback(done, total):
+                pct = round((done / total) * 100, 1)
+                webview.windows[0].evaluate_js(
+                    f"window.onProgressUpdate({done}, {total}, {pct})"
+                )
 
-            stats = {
-                "total": total_files,
-                "successful": successful,
-                "failed": failed,
-                "skipped": 0  # We'll count skipped files as successful for now
-            }
+            stats = walk_and_convert(
+                src,
+                organize=organize,
+                dest_folder=dest_root,
+                retain_structure=preserve,
+                recursive=recursive,
+                progress_callback=progress_callback,
+                known_total=prefetched_total,
+            )
 
-            # Create result message
             if stats['total'] > 0:
-                result_lines = [f"Conversion completed!"]
+                result_lines = ["Conversion completed!"]
                 result_lines.append(f"Total files processed: {stats['total']}")
                 result_lines.append(f"Successfully converted: {stats['successful']}")
                 if stats['failed'] > 0:
                     result_lines.append(f"Failed conversions: {stats['failed']}")
-                
+
                 return {
                     "success": True,
                     "message": "\n".join(result_lines),

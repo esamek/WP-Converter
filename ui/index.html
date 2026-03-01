@@ -156,6 +156,11 @@ Destination: Custom: [object HTMLDivElement]</pre>
       }, 3000); // Hide after 3 seconds
     }
 
+    // Real-time progress handler called by Python via evaluate_js()
+    window.onProgressUpdate = function(done, total, pct) {
+      updateProgress(pct, `Converting... ${done} of ${total}`);
+    };
+
     btnConvert.onclick = async () => {
       if (!window.sourcePath) {
         alert("Please select a file or folder first.");
@@ -167,12 +172,12 @@ Destination: Custom: [object HTMLDivElement]</pre>
         alert("Please select a destination folder.");
         return;
       }
-      
+
       // Disable convert button and show progress
       btnConvert.disabled = true;
       btnConvert.textContent = "Converting...";
       showProgress();
-      
+
       try {
         // Build options object
         const opts = {
@@ -181,10 +186,10 @@ Destination: Custom: [object HTMLDivElement]</pre>
           destPath: window.destPath || "",
           preserve: document.getElementById('chkStructure').checked
         };
-        
+
         // Get file count first for progress calculation
         const fileCount = await window.pywebview.api.get_file_count(window.sourcePath, opts);
-        
+
         if (fileCount === 0) {
           updateProgress(100, 'No .wpd files found');
           completeProgress(false);
@@ -195,20 +200,8 @@ Destination: Custom: [object HTMLDivElement]</pre>
           return;
         }
 
-        // Simulate progress for better UX
-        let currentProgress = 0;
-        const progressInterval = setInterval(() => {
-          if (currentProgress < 90) {
-            currentProgress += Math.random() * 15;
-            updateProgress(Math.min(currentProgress, 90));
-          }
-        }, 200);
-
-        // Call Python conversion and get result
-        const result = await window.pywebview.api.convert_with_progress(window.sourcePath, opts);
-        
-        // Clear the progress simulation
-        clearInterval(progressInterval);
+        // Call Python conversion — real progress arrives via window.onProgressUpdate()
+        const result = await window.pywebview.api.convert_with_progress(window.sourcePath, opts, fileCount);
         
         // Complete the progress bar
         completeProgress(result.success);
